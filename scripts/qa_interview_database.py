@@ -169,6 +169,29 @@ def main() -> int:
         if p.trust_level >= 4 and re.search(r"I have had a problem|Yes, more than once", q15):
             add("MAJOR", "Q15 trust contradiction", p.rid)
 
+    # ------------------------------------------------- workbook-level parity --
+    wb_path = Path(__file__).resolve().parents[1] / "MUBAS_Mobile_Bundle_Interview_Database.xlsx"
+    if wb_path.exists():
+        from openpyxl import load_workbook
+
+        wb = load_workbook(wb_path, read_only=True)
+        ws_long = wb["04 Transcripts (Long)"]
+        rows = [r for r in ws_long.iter_rows(min_row=5, values_only=True) if r and r[0]]
+        if len(rows) != len(people) * 18:
+            add("BLOCK", "workbook rows", f"{len(rows)} long rows vs {len(people) * 18}")
+        mismatched = 0
+        for r in rows:
+            rid, qno, text = r[1], int(r[4]), r[7]
+            if tr[rid][qno][0].strip() != str(text).strip():
+                mismatched += 1
+        if mismatched:
+            add("BLOCK", "workbook mismatch", f"{mismatched} answers differ from the generator")
+        ws_wide = wb["03 Transcripts (Wide)"]
+        wide = [r for r in ws_wide.iter_rows(min_row=5, values_only=True) if r and r[0]]
+        if len(wide) != len(people):
+            add("BLOCK", "workbook rows", f"{len(wide)} wide rows vs {len(people)}")
+        wb.close()
+
     # ------------------------------------------------------------ repetition --
     rep = []
     for q in range(1, N + 1):
